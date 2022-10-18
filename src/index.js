@@ -7,11 +7,11 @@ import throttle from 'lodash.throttle';
 const refs = {
   form: document.querySelector('#search-form'),
   gallery: document.querySelector('.gallery'),
-  loadMoreBtn: document.querySelector('.load-more'),
 };
 
 refs.form.addEventListener('submit', throttle(onSearchSubmit, 300));
-refs.loadMoreBtn.addEventListener('click', throttle(additionalPhotoRender, 300));
+window.addEventListener('scroll', throttle(positionCheck, 250));
+window.addEventListener('resize', throttle(positionCheck, 250));
 
 let lithboxGallery = new SimpleLightbox('.lithboxImage');
 const photosApiService = new PhotosApiService();
@@ -30,22 +30,20 @@ async function onSearchSubmit(evt) {
 
   if (response.imagesArray.length === 0) {
     clearGalleryContainer();
-    refs.loadMoreBtn.classList.remove('is-visable');
     Notify.failure('Sorry, there are no images matching your search query. Please try again.');
     return;
   }
   
   Notify.success(`We found ${photosApiService.totalFoundImages} images.`);
   refs.gallery.innerHTML = galleryMarkup(response.imagesArray);
-  refs.loadMoreBtn.classList.add('is-visable');
   lithboxGallery.refresh();
+  positionCheck();
 }
 
 async function additionalPhotoRender(evt) {
   photosApiService.totalFoundImages += photosApiService.imagesArray.length;
 
   if (photosApiService.totalFoundImages > photosApiService.maxImagesQuantity) {
-    refs.loadMoreBtn.classList.remove('is-visable');
     Notify.info("We're sorry, but you've reached the end of search results.");
     return;
   }
@@ -53,7 +51,6 @@ async function additionalPhotoRender(evt) {
   const response = await photosApiService.fetchImagesViaAxios();
   refs.gallery.insertAdjacentHTML('beforeend', galleryMarkup(response.imagesArray));
   Notify.success(`We found ${photosApiService.totalFoundImages} images.`);
-  scrollByAfterFetch();
   lithboxGallery.refresh();
 }
 
@@ -93,10 +90,15 @@ function clearGalleryContainer() {
   refs.gallery.innerHTML = '';
 }
 
-function scrollByAfterFetch() {
-  let elSizes = refs.gallery.firstElementChild.getBoundingClientRect();
-  window.scrollBy({
-    top: elSizes.height * 2,
-    behavior: 'smooth',
-  });
+function positionCheck() {
+  const height = document.body.offsetHeight;
+  const screenHeight = window.innerHeight;  
+  const scrolled = window.scrollY
+  const threshold = height - screenHeight / 4;
+  const position = scrolled + screenHeight;
+
+  if (position >= threshold) {
+    additionalPhotoRender();
+  }
 }
+
